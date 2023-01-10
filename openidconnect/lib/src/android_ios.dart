@@ -8,9 +8,18 @@ class OpenIdConnectAndroidiOS {
     required String redirectUrl,
     required int popupWidth,
     required int popupHeight,
+    Future<flutterWebView.NavigationDecision?> Function(
+            BuildContext, flutterWebView.NavigationRequest)?
+        navigationInterceptor,
   }) async {
     final controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted);
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..enableZoom(false);
+
+    if (controller.platform is flutterWkWebView.WebKitWebViewController) {
+      (controller.platform as flutterWkWebView.WebKitWebViewController)
+          .setAllowsBackForwardNavigationGestures(true);
+    }
 
     //Create the url
     final result = await showDialog<String?>(
@@ -18,32 +27,64 @@ class OpenIdConnectAndroidiOS {
       barrierDismissible: false,
       builder: (dialogContext) {
         return AlertDialog(
-          actions: [
-            IconButton(
-              onPressed: () => Navigator.pop(dialogContext, null),
-              icon: Icon(Icons.close),
-            ),
-          ],
-          content: Container(
-            width:
-                min(popupWidth.toDouble(), MediaQuery.of(context).size.width),
-            height:
-                min(popupHeight.toDouble(), MediaQuery.of(context).size.height),
-            child: flutterWebView.WebViewWidget(
-              controller: controller
-                ..setNavigationDelegate(
-                  NavigationDelegate(
-                    onPageFinished: (String url) {
-                      if (url.startsWith(redirectUrl)) {
-                        Navigator.pop(dialogContext, url);
-                      }
-                    },
+          insetPadding: EdgeInsets.zero,
+          titlePadding: EdgeInsets.zero,
+          contentPadding: EdgeInsets.zero,
+          actionsPadding: EdgeInsets.zero,
+          content: WillPopScope(
+            // Catched back button pressed
+            onWillPop: () async {
+              if (await controller.canGoBack()) {
+                await controller.goBack();
+                return false;
+              }
+              return true;
+            },
+            child: Stack(
+              children: [
+                Container(
+                  width: min(
+                      popupWidth.toDouble(), MediaQuery.of(context).size.width),
+                  height: min(popupHeight.toDouble(),
+                      MediaQuery.of(context).size.height),
+                  child: flutterWebView.WebViewWidget(
+                    controller: controller
+                      ..setNavigationDelegate(NavigationDelegate(
+                        onNavigationRequest: (navigation) async {
+                          if (navigationInterceptor != null) {
+                            var interceptionResult = await navigationInterceptor
+                                .call(context, navigation);
+
+                            if (interceptionResult != null)
+                              return interceptionResult;
+                          }
+                          return flutterWebView.NavigationDecision.navigate;
+                        },
+                        onPageFinished: (url) {
+                          if (url.startsWith(redirectUrl)) {
+                            Navigator.pop(dialogContext, url);
+                          }
+                        },
+                      ))
+                      ..loadRequest(
+                        Uri.parse(authorizationUrl),
+                      ),
+                  ),
+                ),
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  child: Container(
+                    color: Colors.white,
+                    child: IconButton(
+                      onPressed: () => Navigator.pop(dialogContext, null),
+                      icon: Icon(Icons.close),
+                    ),
                   ),
                 )
-                ..loadRequest(Uri.parse(authorizationUrl)),
+              ],
             ),
           ),
-          title: Text(title),
         );
       },
     );

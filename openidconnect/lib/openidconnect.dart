@@ -14,6 +14,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:retry/retry.dart';
 import 'package:webview_flutter/webview_flutter.dart' as flutterWebView;
+import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart'
+    as flutterWkWebView;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -88,6 +90,8 @@ class OpenIdConnect {
       },
     );
 
+    print("uri: $uri");
+
     //These are special cases for the various different platforms because of limitations in pubspec.yaml
     if (!kIsWeb && (Platform.isIOS || Platform.isAndroid)) {
       responseUrl = await OpenIdConnectAndroidiOS.authorizeInteractive(
@@ -97,6 +101,7 @@ class OpenIdConnect {
         redirectUrl: request.redirectUrl,
         popupHeight: request.popupHeight,
         popupWidth: request.popupWidth,
+        navigationInterceptor: request.navigationInterceptor,
       );
     } else if (kIsWeb) {
       final storage = FlutterSecureStorage();
@@ -110,8 +115,8 @@ class OpenIdConnect {
         title: title,
         authorizationUrl: uri.toString(),
         redirectUrl: request.redirectUrl,
-        popupHeight: request.popupHeight,
-        popupWidth: request.popupWidth,
+        popupHeight: request.popupHeight.toDouble(),
+        popupWidth: request.popupWidth.toDouble(),
         useWebRedirectLoop: !request.useWebPopup,
       );
 

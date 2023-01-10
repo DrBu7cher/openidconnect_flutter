@@ -23,16 +23,18 @@ class AuthorizationResponse extends TokenResponse {
   factory AuthorizationResponse.fromJson(
     Map<String, dynamic> json, {
     String? state,
-  }) =>
-      AuthorizationResponse(
-        accessToken: json["access_token"].toString(),
-        tokenType: json["token_type"].toString(),
-        idToken: json["id_token"].toString(),
-        refreshToken: json["refresh_token"]?.toString(),
-        expiresAt: DateTime.now().add(
-          Duration(seconds: (json['expires_in'] as int?) ?? 0),
-        ),
-        additionalProperties: json,
-        state: state,
-      );
+  }) {
+    print("AuthorizationResponse.fromJson: ${json.keys}");
+    return AuthorizationResponse(
+      accessToken: json["access_token"].toString(),
+      tokenType: json["token_type"].toString(),
+      idToken: json["id_token"].toString(),
+      refreshToken: json["refresh_token"]?.toString(),
+      expiresAt: DateTime.now().add(
+        Duration(seconds: (json['expires_in'] as int?) ?? 0),
+      ),
+      additionalProperties: json,
+      state: state,
+    );
+  }
 }
