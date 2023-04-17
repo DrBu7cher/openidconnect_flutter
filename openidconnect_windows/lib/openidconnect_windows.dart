@@ -20,8 +20,8 @@ class OpenIdConnectWindows extends OpenIdConnectPlatform {
     required String title,
     required String authorizationUrl,
     required String redirectUrl,
-    required int popupWidth,
-    required int popupHeight,
+    required double popupWidth,
+    required double popupHeight,
     bool useWebRedirectLoop = false,
   }) async {
     final _controller = WebviewController();
@@ -47,10 +47,8 @@ class OpenIdConnectWindows extends OpenIdConnectPlatform {
               ),
             ],
             content: SizedBox(
-              width:
-                  min(popupWidth.toDouble(), MediaQuery.of(context).size.width),
-              height: min(
-                  popupHeight.toDouble(), MediaQuery.of(context).size.height),
+              width: min(popupWidth, MediaQuery.of(context).size.width),
+              height: min(popupHeight, MediaQuery.of(context).size.height),
               child: Webview(
                 _controller,
                 permissionRequested: (url, permissionKind, isUserInitiated) =>

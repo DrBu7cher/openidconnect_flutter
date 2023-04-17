@@ -41,8 +41,8 @@ abstract class OpenIdConnectPlatform extends PlatformInterface {
     required String title,
     required String authorizationUrl,
     required String redirectUrl,
-    required int popupWidth,
-    required int popupHeight,
+    required double popupWidth,
+    required double popupHeight,
     bool useWebRedirectLoop = false,
   });
 

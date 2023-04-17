@@ -199,8 +199,8 @@ class OpenIdConnectClient {
     Map<String, String>? additionalParameters,
     Iterable<String>? prompts,
     bool useWebPopup = true,
-    int popupWidth = 640,
-    int popupHeight = 600,
+    double popupWidth = 640,
+    double popupHeight = 600,
   }) async {
     if (this.redirectUrl == null)
       throw StateError(

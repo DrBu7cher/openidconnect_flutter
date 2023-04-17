@@ -4,8 +4,8 @@ class InteractiveAuthorizationRequest extends TokenRequest {
   static const String _charset =
       'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
 
-  final int popupWidth;
-  final int popupHeight;
+  final double popupWidth;
+  final double popupHeight;
   final String codeVerifier;
   final String codeChallenge;
   final bool useWebPopup;
@@ -30,8 +30,8 @@ class InteractiveAuthorizationRequest extends TokenRequest {
     String? loginHint,
     Iterable<String>? prompts,
     Map<String, String>? additionalParameters,
-    int popupWidth = 640,
-    int popupHeight = 600,
+    double popupWidth = 640,
+    double popupHeight = 600,
     bool useWebPopup = true,
     Future<flutterWebView.NavigationDecision?> Function(
             BuildContext, flutterWebView.NavigationRequest)?

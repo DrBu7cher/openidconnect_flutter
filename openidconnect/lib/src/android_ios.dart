@@ -6,8 +6,10 @@ class OpenIdConnectAndroidiOS {
     required String title,
     required String authorizationUrl,
     required String redirectUrl,
-    required int popupWidth,
-    required int popupHeight,
+    required double popupWidth,
+    required double popupHeight,
+    Color? backgroundColor,
+    bool inBackground = false,
     Future<flutterWebView.NavigationDecision?> Function(
             BuildContext, flutterWebView.NavigationRequest)?
         navigationInterceptor,
@@ -75,7 +77,10 @@ class OpenIdConnectAndroidiOS {
                   top: 0,
                   left: 0,
                   child: Container(
-                    color: Colors.white,
+                    decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.only(
+                            bottomRight: Radius.circular(20))),
                     child: IconButton(
                       onPressed: () => Navigator.pop(dialogContext, null),
                       icon: Icon(Icons.close),

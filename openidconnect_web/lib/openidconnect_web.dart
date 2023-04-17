@@ -20,8 +20,8 @@ class OpenIdConnectWeb extends OpenIdConnectPlatform {
     required String title,
     required String authorizationUrl,
     required String redirectUrl,
-    required int popupWidth,
-    required int popupHeight,
+    required double popupWidth,
+    required double popupHeight,
     bool useWebRedirectLoop = false,
   }) async {
     if (useWebRedirectLoop) {
@@ -32,13 +32,13 @@ class OpenIdConnectWeb extends OpenIdConnectPlatform {
       return Future<String?>.value(null);
     }
 
-    final top = (html.window.outerHeight - popupHeight) / 2 +
+    final top = (html.window.outerHeight - popupHeight.ceil()) / 2 +
         (html.window.screen?.available.top ?? 0);
-    final left = (html.window.outerWidth - popupWidth) / 2 +
+    final left = (html.window.outerWidth - popupWidth.ceil()) 2 +
         (html.window.screen?.available.left ?? 0);
 
     var options =
-        'width=${popupWidth},height=${popupHeight},toolbar=no,location=no,directories=no,status=no,menubar=no,copyhistory=no&top=$top,left=$left';
+        'width=${popupWidth.ceil()},height=${popupHeight.ceil()},toolbar=no,location=no,directories=no,status=no,menubar=no,copyhistory=no&top=$top,left=$left';
 
     final child = html.window.open(
       authorizationUrl,
