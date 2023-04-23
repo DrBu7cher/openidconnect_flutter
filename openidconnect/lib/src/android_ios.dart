@@ -68,11 +68,13 @@ class OpenIdConnectAndroidiOS {
                         },
                         onPageFinished: (url) {
                           if (!Platform.isIOS && url.startsWith(redirectUrl)) {
+                            print("onPageFinished: $url");
                             Navigator.pop(dialogContext, url);
                           }
                         },
                         onPageStarted: (url) {
                           if (Platform.isIOS && url.startsWith(redirectUrl)) {
+                            print("onPageStarted: $url");
                             Navigator.pop(dialogContext, url);
                           }
                         },
