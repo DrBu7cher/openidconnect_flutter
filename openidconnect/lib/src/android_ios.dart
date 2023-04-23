@@ -18,6 +18,10 @@ class OpenIdConnectAndroidiOS {
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..enableZoom(false);
 
+    if (backgroundColor != null) {
+      controller.setBackgroundColor(backgroundColor);
+    }
+
     if (controller.platform is flutterWkWebView.WebKitWebViewController) {
       (controller.platform as flutterWkWebView.WebKitWebViewController)
           .setAllowsBackForwardNavigationGestures(true);
@@ -63,7 +67,12 @@ class OpenIdConnectAndroidiOS {
                           return flutterWebView.NavigationDecision.navigate;
                         },
                         onPageFinished: (url) {
-                          if (url.startsWith(redirectUrl)) {
+                          if (!Platform.isIOS && url.startsWith(redirectUrl)) {
+                            Navigator.pop(dialogContext, url);
+                          }
+                        },
+                        onPageStarted: (url) {
+                          if (Platform.isIOS && url.startsWith(redirectUrl)) {
                             Navigator.pop(dialogContext, url);
                           }
                         },
