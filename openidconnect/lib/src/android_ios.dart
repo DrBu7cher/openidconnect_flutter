@@ -18,23 +18,6 @@ class OpenIdConnectAndroidiOS {
         flutterWebView.WebViewController()
           ..setJavaScriptMode(flutterWebView.JavaScriptMode.unrestricted)
           ..loadRequest(Uri.parse(authorizationUrl))
-          ..setNavigationDelegate(flutterWebView.NavigationDelegate(
-            onNavigationRequest: (navigation) async {
-              if (navigation.url.startsWith(redirectUrl)) {
-                if (context.mounted) {
-                  Navigator.pop(context, navigation.url);
-                }
-                return flutterWebView.NavigationDecision.navigate;
-              }
-              if (navigationInterceptor != null) {
-                var interceptionResult =
-                    await navigationInterceptor.call(context, navigation);
-
-                if (interceptionResult != null) return interceptionResult;
-              }
-              return flutterWebView.NavigationDecision.navigate;
-            },
-          ))
           ..enableZoom(false)
           ..setBackgroundColor(Colors.transparent);
 
@@ -49,12 +32,33 @@ class OpenIdConnectAndroidiOS {
         is flutterWebViewAndroid.AndroidWebViewController) {}
 
     String? result = await showDialog<String?>(
+      barrierColor: Colors.transparent,
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) {
+        controller.setNavigationDelegate(flutterWebView.NavigationDelegate(
+          onNavigationRequest: (navigation) async {
+            if (navigation.url.startsWith(redirectUrl)) {
+              if (dialogContext.mounted) {
+                Navigator.pop(dialogContext, navigation.url);
+              }
+              return flutterWebView.NavigationDecision.navigate;
+            }
+            if (navigationInterceptor != null) {
+              var interceptionResult =
+                  await navigationInterceptor.call(context, navigation);
+
+              if (interceptionResult != null) return interceptionResult;
+            }
+            return flutterWebView.NavigationDecision.navigate;
+          },
+        ));
         return Visibility(
           visible: !inBackground,
           child: AlertDialog(
+            elevation: 0,
+            shadowColor: Colors.transparent,
+            backgroundColor: Colors.transparent,
             insetPadding: EdgeInsets.zero,
             titlePadding: EdgeInsets.zero,
             contentPadding: EdgeInsets.zero,
