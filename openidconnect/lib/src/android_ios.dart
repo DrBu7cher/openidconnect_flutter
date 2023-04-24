@@ -35,7 +35,8 @@ class OpenIdConnectAndroidiOS {
               return flutterWebView.NavigationDecision.navigate;
             },
           ))
-          ..enableZoom(false);
+          ..enableZoom(false)
+          ..setBackgroundColor(Colors.transparent);
 
     if (backgroundColor != null) {
       controller.setBackgroundColor(backgroundColor);
