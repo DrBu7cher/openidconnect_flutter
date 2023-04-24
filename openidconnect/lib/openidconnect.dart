@@ -79,6 +79,7 @@ class OpenIdConnect {
     required BuildContext context,
     required String title,
     required InteractiveAuthorizationRequest request,
+    Color? backgroundColor,
   }) async {
     late String? responseUrl;
 
@@ -102,6 +103,7 @@ class OpenIdConnect {
         popupHeight: request.popupHeight,
         popupWidth: request.popupWidth,
         navigationInterceptor: request.navigationInterceptor,
+        backgroundColor: backgroundColor,
       );
     } else if (kIsWeb) {
       final storage = FlutterSecureStorage();
