@@ -222,11 +222,14 @@ packages:
       path: ".."
       relative: true
     source: path
+<<<<<<< HEAD
     version: "1.0.26"
+=======
+    version: "1.1.0"
+>>>>>>> 838cb14 (feat: upgrade webview)
   openidconnect_platform_interface:
     dependency: transitive
     description:
-<<<<<<< HEAD
       name: openidconnect_platform_interface
       sha256: "3ed6be6aea26f15ec45d01b96d4073e6c9c7082d797aa890350d268887fd9802"
       url: "https://pub.dev"
@@ -240,23 +243,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.22"
-=======
-      path: openidconnect_platform_interface
-      ref: HEAD
-      resolved-ref: c0387b65faa891ff2942d6da3b86a67fbe209749
-      url: "https://github.com/DrBu7cher/openidconnect_flutter.git"
-    source: git
-    version: "1.0.13"
-  openidconnect_web:
-    dependency: transitive
-    description:
-      path: openidconnect_web
-      ref: HEAD
-      resolved-ref: c0387b65faa891ff2942d6da3b86a67fbe209749
-      url: "https://github.com/DrBu7cher/openidconnect_flutter.git"
-    source: git
-    version: "1.0.21"
->>>>>>> 356e76c (fix)
   path:
     dependency: transitive
     description:

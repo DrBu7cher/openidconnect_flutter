@@ -14,21 +14,40 @@ class OpenIdConnectAndroidiOS {
             BuildContext, flutterWebView.NavigationRequest)?
         navigationInterceptor,
   }) async {
-    final controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..enableZoom(false);
+    final flutterWebView.WebViewController controller =
+        flutterWebView.WebViewController()
+          ..setJavaScriptMode(flutterWebView.JavaScriptMode.unrestricted)
+          ..loadRequest(Uri.parse(authorizationUrl))
+          ..setNavigationDelegate(flutterWebView.NavigationDelegate(
+            onNavigationRequest: (navigation) async {
+              if (navigation.url.startsWith(redirectUrl)) {
+                if (context.mounted) {
+                  Navigator.pop(context, navigation.url);
+                }
+                return flutterWebView.NavigationDecision.navigate;
+              }
+              if (navigationInterceptor != null) {
+                var interceptionResult =
+                    await navigationInterceptor.call(context, navigation);
+
+                if (interceptionResult != null) return interceptionResult;
+              }
+              return flutterWebView.NavigationDecision.navigate;
+            },
+          ))
+          ..enableZoom(false);
 
     if (backgroundColor != null) {
       controller.setBackgroundColor(backgroundColor);
     }
 
-    if (controller.platform is flutterWkWebView.WebKitWebViewController) {
-      (controller.platform as flutterWkWebView.WebKitWebViewController)
+    if (controller.platform is flutterWebViewIOS.WebKitWebViewController) {
+      (controller.platform as flutterWebViewIOS.WebKitWebViewController)
           .setAllowsBackForwardNavigationGestures(true);
-    }
+    } else if (controller.platform
+        is flutterWebViewAndroid.AndroidWebViewController) {}
 
-    //Create the url
-    final result = await showDialog<String?>(
+    String? result = await showDialog<String?>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) {
@@ -51,47 +70,11 @@ class OpenIdConnectAndroidiOS {
               child: Stack(
                 children: [
                   Container(
-                    width: min(popupWidth.toDouble(),
-                        MediaQuery.of(context).size.width),
-                    height: min(popupHeight.toDouble(),
-                        MediaQuery.of(context).size.height),
+                    width: min(popupWidth, MediaQuery.of(context).size.width),
+                    height:
+                        min(popupHeight, MediaQuery.of(context).size.height),
                     child: flutterWebView.WebViewWidget(
-                      controller: controller
-                        ..setNavigationDelegate(NavigationDelegate(
-                          onNavigationRequest: (navigation) async {
-                            if (navigation.url.startsWith(redirectUrl)) {
-                              if (dialogContext.mounted) {
-                                Navigator.pop(dialogContext, navigation.url);
-                              }
-                              return flutterWebView.NavigationDecision.navigate;
-                            }
-                            if (navigationInterceptor != null) {
-                              var interceptionResult =
-                                  await navigationInterceptor.call(
-                                      context, navigation);
-
-                              if (interceptionResult != null)
-                                return interceptionResult;
-                            }
-                            return flutterWebView.NavigationDecision.navigate;
-                          },
-                          onPageFinished: (url) {
-                            if (!Platform.isIOS &&
-                                url.startsWith(redirectUrl)) {
-                              print("onPageFinished: $url");
-                              Navigator.pop(dialogContext, url);
-                            }
-                          },
-                          onPageStarted: (url) {
-                            if (Platform.isIOS && url.startsWith(redirectUrl)) {
-                              print("onPageStarted: $url");
-                              Navigator.pop(dialogContext, url);
-                            }
-                          },
-                        ))
-                        ..loadRequest(
-                          Uri.parse(authorizationUrl),
-                        ),
+                      controller: controller,
                     ),
                   ),
                   Positioned(
