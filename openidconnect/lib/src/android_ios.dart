@@ -32,73 +32,78 @@ class OpenIdConnectAndroidiOS {
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) {
-        return AlertDialog(
-          insetPadding: EdgeInsets.zero,
-          titlePadding: EdgeInsets.zero,
-          contentPadding: EdgeInsets.zero,
-          actionsPadding: EdgeInsets.zero,
-          content: WillPopScope(
-            // Catched back button pressed
-            onWillPop: () async {
-              if (await controller.canGoBack()) {
-                await controller.goBack();
-                return false;
-              }
-              return true;
-            },
-            child: Stack(
-              children: [
-                Container(
-                  width: min(
-                      popupWidth.toDouble(), MediaQuery.of(context).size.width),
-                  height: min(popupHeight.toDouble(),
-                      MediaQuery.of(context).size.height),
-                  child: flutterWebView.WebViewWidget(
-                    controller: controller
-                      ..setNavigationDelegate(NavigationDelegate(
-                        onNavigationRequest: (navigation) async {
-                          if (navigationInterceptor != null) {
-                            var interceptionResult = await navigationInterceptor
-                                .call(context, navigation);
+        return Visibility(
+          visible: !inBackground,
+          child: AlertDialog(
+            insetPadding: EdgeInsets.zero,
+            titlePadding: EdgeInsets.zero,
+            contentPadding: EdgeInsets.zero,
+            actionsPadding: EdgeInsets.zero,
+            content: WillPopScope(
+              // Catched back button pressed
+              onWillPop: () async {
+                if (await controller.canGoBack()) {
+                  await controller.goBack();
+                  return false;
+                }
+                return true;
+              },
+              child: Stack(
+                children: [
+                  Container(
+                    width: min(popupWidth.toDouble(),
+                        MediaQuery.of(context).size.width),
+                    height: min(popupHeight.toDouble(),
+                        MediaQuery.of(context).size.height),
+                    child: flutterWebView.WebViewWidget(
+                      controller: controller
+                        ..setNavigationDelegate(NavigationDelegate(
+                          onNavigationRequest: (navigation) async {
+                            if (navigationInterceptor != null) {
+                              var interceptionResult =
+                                  await navigationInterceptor.call(
+                                      context, navigation);
 
-                            if (interceptionResult != null)
-                              return interceptionResult;
-                          }
-                          return flutterWebView.NavigationDecision.navigate;
-                        },
-                        onPageFinished: (url) {
-                          if (!Platform.isIOS && url.startsWith(redirectUrl)) {
-                            print("onPageFinished: $url");
-                            Navigator.pop(dialogContext, url);
-                          }
-                        },
-                        onPageStarted: (url) {
-                          if (Platform.isIOS && url.startsWith(redirectUrl)) {
-                            print("onPageStarted: $url");
-                            Navigator.pop(dialogContext, url);
-                          }
-                        },
-                      ))
-                      ..loadRequest(
-                        Uri.parse(authorizationUrl),
-                      ),
-                  ),
-                ),
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  child: Container(
-                    decoration: BoxDecoration(
-                        color: Colors.white24,
-                        borderRadius: BorderRadius.only(
-                            bottomRight: Radius.circular(20))),
-                    child: IconButton(
-                      onPressed: () => Navigator.pop(dialogContext, null),
-                      icon: Icon(Icons.close),
+                              if (interceptionResult != null)
+                                return interceptionResult;
+                            }
+                            return flutterWebView.NavigationDecision.navigate;
+                          },
+                          onPageFinished: (url) {
+                            if (!Platform.isIOS &&
+                                url.startsWith(redirectUrl)) {
+                              print("onPageFinished: $url");
+                              Navigator.pop(dialogContext, url);
+                            }
+                          },
+                          onPageStarted: (url) {
+                            if (Platform.isIOS && url.startsWith(redirectUrl)) {
+                              print("onPageStarted: $url");
+                              Navigator.pop(dialogContext, url);
+                            }
+                          },
+                        ))
+                        ..loadRequest(
+                          Uri.parse(authorizationUrl),
+                        ),
                     ),
                   ),
-                )
-              ],
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    child: Container(
+                      decoration: BoxDecoration(
+                          color: Colors.white24,
+                          borderRadius: BorderRadius.only(
+                              bottomRight: Radius.circular(20))),
+                      child: IconButton(
+                        onPressed: () => Navigator.pop(dialogContext, null),
+                        icon: Icon(Icons.close),
+                      ),
+                    ),
+                  )
+                ],
+              ),
             ),
           ),
         );
