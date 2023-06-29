@@ -5,6 +5,8 @@ class AuthorizationResponse extends TokenResponse {
   final String? refreshToken;
   final String idToken;
   final String? state;
+  Duration get timeToExpiration => expiresAt.difference(DateTime.now());
+  bool get needsRefresh => expiresAt.isBefore(DateTime.now());
 
   AuthorizationResponse({
     required this.accessToken,
@@ -24,16 +26,21 @@ class AuthorizationResponse extends TokenResponse {
     Map<String, dynamic> json, {
     String? state,
   }) {
-    print("AuthorizationResponse.fromJson: ${json.keys}");
     return AuthorizationResponse(
       accessToken: json["access_token"].toString(),
       tokenType: json["token_type"].toString(),
       idToken: json["id_token"].toString(),
       refreshToken: json["refresh_token"]?.toString(),
-      expiresAt: DateTime.now().add(
+      expiresAt:
+          (json["iat"] != null && int.tryParse(json["iat"].toString()) != null
+                  ? DateTime.fromMillisecondsSinceEpoch(
+                      int.parse(json["iat"].toString()))
+                  : DateTime.now())
+              .add(
         Duration(seconds: (json['expires_in'] as int?) ?? 0),
       ),
-      additionalProperties: json,
+      additionalProperties: json
+        ..["iat"] = DateTime.now().millisecondsSinceEpoch,
       state: state,
     );
   }
