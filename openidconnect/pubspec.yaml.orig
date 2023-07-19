@@ -1,13 +1,7 @@
 name: openidconnect
 description: OpenIdConnect library for flutter.
-<<<<<<< HEAD
 version: 1.0.27
 homepage: https://github.com/4D-Technologies/openidconnect_flutter
-=======
-version: 1.1.0
-homepage: https://github.com/Concerti-IO/openidconnect_flutter
-publish_to: none
->>>>>>> 44f9657 (bump version)
 
 environment:
   sdk: '>=3.1.4 <4.0.0'
@@ -26,8 +20,13 @@ dependencies:
 
   cryptography: ^2.7.0
 
+<<<<<<< HEAD
   url_launcher: ^6.2.4
   http: ^1.2.0
+=======
+  url_launcher: ^6.2.1
+  http: ^1.1.0
+>>>>>>> 7263d7f (chore: bump http version)
   retry: ^3.1.2
 
   # TODO Remove these once native implementations can be added. Refactor so that the native implementations don't need to do the full cycle through.
