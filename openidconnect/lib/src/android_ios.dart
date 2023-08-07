@@ -91,6 +91,8 @@ class OpenIdConnectAndroidiOS {
                           borderRadius: BorderRadius.only(
                               bottomRight: Radius.circular(20))),
                       child: IconButton(
+                        key: const Key(
+                            'openidconnect__close_auth_window_button'),
                         onPressed: () {
                           if (dialogContext.mounted)
                             Navigator.pop(dialogContext, null);
