@@ -35,6 +35,7 @@ class OpenIdConnectAndroidiOS {
       barrierColor: Colors.transparent,
       context: context,
       barrierDismissible: false,
+      useRootNavigator: false,
       builder: (dialogContext) {
         controller.setNavigationDelegate(flutterWebView.NavigationDelegate(
           onNavigationRequest: (navigation) async {
@@ -63,14 +64,20 @@ class OpenIdConnectAndroidiOS {
             titlePadding: EdgeInsets.zero,
             contentPadding: EdgeInsets.zero,
             actionsPadding: EdgeInsets.zero,
-            content: WillPopScope(
+            content: PopScope(
+              canPop: false,
               // Catched back button pressed
-              onWillPop: () async {
+              onPopInvoked: (final didPop) async {
+                if (didPop) {
+                  // The dialog is gone.
+                  return;
+                }
+
                 if (await controller.canGoBack()) {
                   await controller.goBack();
-                  return false;
+                  return;
                 }
-                return true;
+                Navigator.of(context).pop();
               },
               child: Stack(
                 children: [
