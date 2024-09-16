@@ -8,6 +8,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:cryptography/cryptography.dart' as crypto;
+import 'package:jose/jose.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:openidconnect_platform_interface/openidconnect_platform_interface.dart';
 import 'package:flutter/foundation.dart';
@@ -19,7 +20,6 @@ import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart'
 import 'package:webview_flutter_android/webview_flutter_android.dart'
     as flutterWebViewAndroid;
 import 'package:url_launcher/url_launcher.dart';
-import 'package:webview_flutter/webview_flutter.dart';
 
 part './src/openidconnect_client.dart';
 part './src/android_ios.dart';
@@ -119,8 +119,8 @@ class OpenIdConnect {
         title: title,
         authorizationUrl: uri.toString(),
         redirectUrl: request.redirectUrl,
-        popupHeight: request.popupHeight.toDouble(),
-        popupWidth: request.popupWidth.toDouble(),
+        popupHeight: request.popupHeight,
+        popupWidth: request.popupWidth,
         useWebRedirectLoop: !request.useWebPopup,
       );
 

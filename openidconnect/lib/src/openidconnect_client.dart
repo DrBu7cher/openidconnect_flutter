@@ -15,13 +15,20 @@ class OpenIdConnectClient {
   final String? clientSecret;
   final String? redirectUrl;
   final bool autoRefresh;
+  final bool validateAgainstJwksUri;
   final bool webUseRefreshTokens;
   final List<String> scopes;
   final List<String>? audiences;
 
-  OpenIdConfiguration? configuration = null;
-  Future<bool>? _autoRenewTimer = null;
-  OpenIdIdentity? _identity = null;
+  JsonWebKeyStore? keyStore;
+  JsonWebToken? validatedJWT;
+  JsonWebKeySet? _keySet;
+  Map<String, String> jwksStringsCache = {};
+  Map<String, int> jwksStringsExpiry = {};
+
+  OpenIdConfiguration? configuration;
+  Future<bool>? _autoRenewTimer;
+  OpenIdIdentity? _identity;
   bool _refreshing = false;
   bool _isInitializationComplete = false;
 
@@ -33,29 +40,32 @@ class OpenIdConnectClient {
     this.redirectUrl,
     this.clientSecret,
     this.autoRefresh = true,
+    this.validateAgainstJwksUri = true,
     this.webUseRefreshTokens = true,
     this.scopes = DEFAULT_SCOPES,
     this.audiences,
   });
 
   static Future<OpenIdConnectClient> create({
-    required String discoveryDocumentUrl,
-    required String clientId,
-    String? redirectUrl,
-    String? clientSecret,
-    bool autoRefresh = true,
-    bool webUseRefreshTokens = true,
-    List<String> scopes = DEFAULT_SCOPES,
-    List<String>? audiences,
+    required final String discoveryDocumentUrl,
+    required final String clientId,
+    final String? redirectUrl,
+    final String? clientSecret,
+    final bool autoRefresh = true,
+    final bool validateAgainstJwksUri = true,
+    final bool webUseRefreshTokens = true,
+    final List<String> scopes = DEFAULT_SCOPES,
+    final List<String>? audiences,
   }) async {
     final client = OpenIdConnectClient._(
       discoveryDocumentUrl: discoveryDocumentUrl,
       clientId: clientId,
       clientSecret: clientSecret,
       redirectUrl: redirectUrl,
-      scopes: scopes,
-      webUseRefreshTokens: webUseRefreshTokens,
       autoRefresh: autoRefresh,
+      validateAgainstJwksUri: validateAgainstJwksUri,
+      webUseRefreshTokens: webUseRefreshTokens,
+      scopes: scopes,
       audiences: audiences,
     );
 
@@ -67,6 +77,7 @@ class OpenIdConnectClient {
   Future<void> _processStartup() async {
     if (redirectUrl != null) {
       await _verifyDiscoveryDocument();
+
       final response = await OpenIdConnect.processStartup(
         clientId: clientId,
         clientSecret: clientSecret,
@@ -76,34 +87,38 @@ class OpenIdConnectClient {
         autoRefresh: autoRefresh,
       );
 
-      if (response != null)
+      if (response != null) {
         _identity = OpenIdIdentity.fromAuthorizationResponse(response);
+      }
     }
 
-    if (_identity == null) _identity = await OpenIdIdentity.load();
+    _identity ??= await OpenIdIdentity.load();
     _isInitializationComplete = true;
 
     if (_identity != null) {
+      if (validateAgainstJwksUri) {
+        await _setValidatedIdToken(_identity?.idToken);
+      }
       if (autoRefresh && !await _setupAutoRenew()) {
-        _raiseEvent(AuthEvent(AuthEventTypes.NotLoggedIn));
+        _raiseEvent(const AuthEvent(AuthEventTypes.NotLoggedIn));
         return;
       } else if (hasTokenExpired) {
-        _raiseEvent(AuthEvent(AuthEventTypes.NotLoggedIn));
+        _raiseEvent(const AuthEvent(AuthEventTypes.NotLoggedIn));
         return;
       } else {
         if (isTokenAboutToExpire && !await refresh(raiseEvents: false)) {
-          _raiseEvent(AuthEvent(AuthEventTypes.NotLoggedIn));
+          _raiseEvent(const AuthEvent(AuthEventTypes.NotLoggedIn));
           return;
         }
-        _raiseEvent(AuthEvent(AuthEventTypes.Success));
+        _raiseEvent(const AuthEvent(AuthEventTypes.Success));
       }
     } else {
-      _raiseEvent(AuthEvent(AuthEventTypes.NotLoggedIn));
+      _raiseEvent(const AuthEvent(AuthEventTypes.NotLoggedIn));
     }
   }
 
   void dispose() {
-    _eventStreamController.close();
+    unawaited(_eventStreamController.close());
   }
 
   Stream<AuthEvent> get changes =>
@@ -118,15 +133,15 @@ class OpenIdConnectClient {
 
   bool get isTokenAboutToExpire {
     var refreshTime = _identity!.expiresAt.difference(DateTime.now().toUtc());
-    refreshTime -= Duration(minutes: 1);
+    refreshTime -= const Duration(minutes: 1);
     return refreshTime.isNegative;
   }
 
   Future<OpenIdIdentity> loginWithPassword(
-      {required String userName,
-      required String password,
-      Iterable<String>? prompts,
-      Map<String, String>? additionalParameters}) async {
+      {required final String userName,
+      required final String password,
+      final Iterable<String>? prompts,
+      final Map<String, String>? additionalParameters}) async {
     if (_autoRenewTimer != null) _autoRenewTimer = null;
 
     try {
@@ -152,7 +167,7 @@ class OpenIdConnectClient {
 
       if (autoRefresh) _setupAutoRenew();
 
-      _raiseEvent(AuthEvent(AuthEventTypes.Success));
+      _raiseEvent(const AuthEvent(AuthEventTypes.Success));
 
       return _identity!;
     } on Exception catch (e) {
@@ -163,7 +178,7 @@ class OpenIdConnectClient {
   }
 
   Future<OpenIdIdentity> loginWithDeviceCode() async {
-    if (_autoRenewTimer != null) _autoRenewTimer = null;
+    _autoRenewTimer = null;
 
     //Make sure we have the discovery information
     await _verifyDiscoveryDocument();
@@ -183,7 +198,7 @@ class OpenIdConnectClient {
 
       if (autoRefresh) _setupAutoRenew();
 
-      _raiseEvent(AuthEvent(AuthEventTypes.Success));
+      _raiseEvent(const AuthEvent(AuthEventTypes.Success));
       return _identity!;
     } on Exception catch (e) {
       clearIdentity();
@@ -193,18 +208,22 @@ class OpenIdConnectClient {
   }
 
   Future<OpenIdIdentity> loginInteractive({
-    required BuildContext context,
-    required String title,
-    String? userNameHint,
-    Map<String, String>? additionalParameters,
-    Iterable<String>? prompts,
-    bool useWebPopup = true,
-    double popupWidth = 640,
-    double popupHeight = 600,
+    required final BuildContext context,
+    required final String title,
+    final String? userNameHint,
+    final Map<String, String>? additionalParameters,
+    final Iterable<String>? prompts,
+    final bool useWebPopup = true,
+    final double popupWidth = 640,
+    final double popupHeight = 600,
+    final Future<flutterWebView.NavigationDecision?> Function(
+            BuildContext, flutterWebView.NavigationRequest)?
+        navigationInterceptor,
   }) async {
-    if (this.redirectUrl == null)
+    if (redirectUrl == null) {
       throw StateError(
           "When using login interactive, you must create the client with a redirect url.");
+    }
 
     if (_autoRenewTimer != null) _autoRenewTimer = null;
 
@@ -219,8 +238,8 @@ class OpenIdConnectClient {
         request: await InteractiveAuthorizationRequest.create(
           configuration: configuration!,
           clientId: clientId,
-          redirectUrl: this.redirectUrl!,
-          clientSecret: this.clientSecret,
+          redirectUrl: redirectUrl!,
+          clientSecret: clientSecret,
           loginHint: userNameHint,
           additionalParameters: additionalParameters,
           scopes: _getScopes(scopes),
@@ -229,6 +248,7 @@ class OpenIdConnectClient {
           useWebPopup: useWebPopup,
           popupHeight: popupHeight,
           popupWidth: popupWidth,
+          navigationInterceptor: navigationInterceptor,
         ),
       );
 
@@ -237,20 +257,23 @@ class OpenIdConnectClient {
       //Load the idToken here
       await _completeLogin(response);
 
-      if (autoRefresh) _setupAutoRenew();
+      if (autoRefresh) await _setupAutoRenew();
 
-      _raiseEvent(AuthEvent(AuthEventTypes.Success));
+      _raiseEvent(const AuthEvent(AuthEventTypes.Success));
 
+      print('identy is null: ${_identity == null}');
       return _identity!;
     } on Exception catch (e) {
-      clearIdentity();
+      await clearIdentity();
       _raiseEvent(AuthEvent(AuthEventTypes.Error, message: e.toString()));
       throw AuthenticationException(e.toString());
     }
   }
 
   Future<void> logout() async {
-    if (_autoRenewTimer != null) _autoRenewTimer = null;
+    _autoRenewTimer = null;
+
+    validatedJWT = null;
 
     if (_identity == null) return;
 
@@ -267,11 +290,11 @@ class OpenIdConnectClient {
       );
     } on Exception {}
 
-    _raiseEvent(AuthEvent(AuthEventTypes.NotLoggedIn));
+    _raiseEvent(const AuthEvent(AuthEventTypes.NotLoggedIn));
   }
 
   Future<void> revokeToken() async {
-    if (_autoRenewTimer != null) _autoRenewTimer = null;
+    _autoRenewTimer = null;
 
     if (_identity == null) return;
 
@@ -296,7 +319,7 @@ class OpenIdConnectClient {
   /// Keycloak compatible logout
   /// see https://www.keycloak.org/docs/latest/securing_apps/#logout-endpoint
   Future<void> logoutToken() async {
-    if (_autoRenewTimer != null) _autoRenewTimer = null;
+    _autoRenewTimer = null;
 
     if (_identity == null) return;
 
@@ -317,24 +340,27 @@ class OpenIdConnectClient {
     }
 
     clearIdentity();
-    _raiseEvent(AuthEvent(AuthEventTypes.NotLoggedIn));
+    _raiseEvent(const AuthEvent(AuthEventTypes.NotLoggedIn));
   }
 
   FutureOr<bool> isLoggedIn() async {
-    if (!_isInitializationComplete)
+    if (!_isInitializationComplete) {
       throw StateError(
           'You must call processStartupAuthentication before using this library.');
+    }
 
     if (_identity == null) return false;
 
     if (!isTokenAboutToExpire) return true;
 
-    if (this.autoRefresh) await refresh();
+    if (autoRefresh) await refresh();
+
+    if (validateAgainstJwksUri && validatedJWT == null) return false;
 
     return hasTokenExpired;
   }
 
-  void reportError(String errorMessage) {
+  void reportError(final String errorMessage) {
     currentEvent = AuthEvent(
       AuthEventTypes.Error,
       message: errorMessage,
@@ -345,10 +371,12 @@ class OpenIdConnectClient {
     );
   }
 
-  Future<void> sendRequests<T>(Iterable<Future<T>> Function() requests) async {
+  Future<void> sendRequests<T>(
+      final Iterable<Future<T>> Function() requests) async {
     if ((_identity == null || isTokenAboutToExpire) &&
-        (!this.autoRefresh || !await refresh(raiseEvents: true)))
+        (!autoRefresh || !await refresh(raiseEvents: true))) {
       throw AuthenticationException();
+    }
 
     await Future.wait(requests());
   }
@@ -361,7 +389,7 @@ class OpenIdConnectClient {
     return true;
   }
 
-  Future<bool> refresh({bool raiseEvents = true}) async {
+  Future<bool> refresh({final bool raiseEvents = true}) async {
     if (!webUseRefreshTokens) {
       //Web has a special case where it will use a hidden iframe. This just returns true because the iframe does it.
       //In this case we simply load from storage because the web implementation just stores the new values in storage for us.
@@ -369,15 +397,16 @@ class OpenIdConnectClient {
       return true;
     }
 
-    while (_refreshing) await Future<void>.delayed(Duration(milliseconds: 200));
+    while (_refreshing)
+      await Future<void>.delayed(const Duration(milliseconds: 200));
 
     try {
       _refreshing = true;
-      if (_autoRenewTimer != null) _autoRenewTimer = null;
+      _autoRenewTimer = null;
 
-      if (this._identity == null ||
-          this._identity!.refreshToken == null ||
-          this._identity!.refreshToken!.isEmpty) return false;
+      if (_identity == null ||
+          _identity!.refreshToken == null ||
+          _identity!.refreshToken!.isEmpty) return false;
 
       await _verifyDiscoveryDocument();
 
@@ -394,13 +423,14 @@ class OpenIdConnectClient {
       await _completeLogin(response);
 
       if (autoRefresh) {
-        var refreshTime = _identity!.expiresAt.difference(DateTime.now().toUtc());
-        refreshTime -= Duration(minutes: 1);
+        var refreshTime =
+            _identity!.expiresAt.difference(DateTime.now().toUtc());
+        refreshTime -= const Duration(minutes: 1);
 
         _autoRenewTimer = Future.delayed(refreshTime, refresh);
       }
 
-      if (raiseEvents) _raiseEvent(AuthEvent(AuthEventTypes.Refresh));
+      if (raiseEvents) _raiseEvent(const AuthEvent(AuthEventTypes.Refresh));
 
       return true;
     } on Exception catch (e) {
@@ -413,21 +443,49 @@ class OpenIdConnectClient {
   }
 
   Future<void> clearIdentity() async {
-    if (this._identity != null) {
+    if (_identity != null) {
       await OpenIdIdentity.clear();
-      this._identity = null;
+      _identity = null;
     }
   }
 
-  void _raiseEvent(AuthEvent evt) {
+  void _raiseEvent(final AuthEvent evt) {
     currentEvent = evt;
     _eventStreamController.sink.add(evt);
   }
 
-  Future<void> _completeLogin(AuthorizationResponse response) async {
-    this._identity = OpenIdIdentity.fromAuthorizationResponse(response);
+  Future<void> _completeLogin(final AuthorizationResponse response) async {
+    _identity = OpenIdIdentity.fromAuthorizationResponse(response);
 
-    await this._identity!.save();
+    if (validateAgainstJwksUri) {
+      await _setValidatedIdToken(_identity?.idToken);
+    }
+
+    await _identity!.save();
+  }
+
+  Future<void> _setValidatedIdToken(final String? idToken) async {
+    if (idToken == null || keyStore == null) {
+      return Future.error(
+        "idToken (${idToken == null ? "null" : "not null"})"
+        ' or keyStore ($keyStore) is null',
+      );
+    }
+    if (kDebugMode) {
+      print('Validating token...');
+    }
+    return JsonWebToken.decodeAndVerify(idToken, keyStore!).then((final jwt) {
+      validatedJWT = jwt;
+      if (kDebugMode) {
+        print('validatedJWT: ${validatedJWT?.toCompactSerialization()}');
+      }
+    }).catchError(
+      (final dynamic err) {
+        if (kDebugMode) {
+          print('Error validating idToken: $err');
+        }
+      },
+    );
   }
 
   Future<bool> _setupAutoRenew() async {
@@ -439,7 +497,7 @@ class OpenIdConnectClient {
     } else {
       var refreshTime = _identity!.expiresAt.difference(DateTime.now().toUtc());
 
-      refreshTime -= Duration(minutes: 1);
+      refreshTime -= const Duration(minutes: 1);
 
       _autoRenewTimer = Future.delayed(refreshTime, refresh);
       return true;
@@ -450,14 +508,70 @@ class OpenIdConnectClient {
     if (configuration != null) return;
 
     configuration = await OpenIdConnect.getConfiguration(
-      this.discoveryDocumentUrl,
+      discoveryDocumentUrl,
     );
+
+    final jwksUri = configuration?.jwksUri;
+    if (jwksUri == null) {
+      return;
+    }
+
+    final v = jwksStringsCache[jwksUri];
+    final isExpired = !jwksStringsExpiry.containsKey(jwksUri) ||
+        (jwksStringsExpiry[jwksUri] ?? 0) <
+            DateTime.now().millisecondsSinceEpoch;
+
+    return ((v == null || isExpired)
+            ? http.get(Uri.parse(jwksUri)).then((final response) {
+                if (response.statusCode != 200) {
+                  return;
+                }
+
+                jwksStringsCache[jwksUri] = response.body;
+                jwksStringsExpiry[jwksUri] = DateTime.now()
+                    .add(const Duration(hours: 1))
+                    .millisecondsSinceEpoch;
+              }).catchError((final dynamic err) {
+                if (kDebugMode) {
+                  print('ERR! failed to get $jwksUri -> $err');
+                }
+              })
+            : Future<void>.value())
+        .whenComplete(() {
+      final jwksCache = jwksStringsCache[jwksUri];
+      if (jwksCache == null) {
+        return Future.value();
+      }
+
+      if (kDebugMode) {
+        print('decoding $jwksCache...');
+      }
+      try {
+        final jwksMap = jsonDecode(jwksCache) as Map<String, dynamic>;
+
+        if (jwksMap.containsKey('keys')) {
+          _keySet = JsonWebKeySet.fromJson(jwksMap);
+          if (kDebugMode) {
+            print('keyStore: ${_keySet!.keys}');
+          }
+          keyStore = (keyStore ?? JsonWebKeyStore())..addKeySet(_keySet!);
+        }
+        return Future.value();
+      } catch (err) {
+        if (kDebugMode) {
+          print('ERR! loading keystore failed: $err');
+        }
+        jwksStringsCache.remove(jwksUri);
+        return Future.error(err);
+      }
+    });
   }
 
   ///Gets the proper scopes and adds offline access if the user has it specified in the configuration for the client.
-  Iterable<String> _getScopes(Iterable<String> scopes) {
-    if (autoRefresh && !scopes.contains(OFFLINE_ACCESS_SCOPE))
+  Iterable<String> _getScopes(final Iterable<String> scopes) {
+    if (autoRefresh && !scopes.contains(OFFLINE_ACCESS_SCOPE)) {
       return [OFFLINE_ACCESS_SCOPE, ...scopes];
+    }
     return scopes;
   }
 }
